@@ -16,10 +16,10 @@ class ForestFire(nn.Module):
         super(ForestFire, self).__init__()
 
         self.neighborhood = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=3, stride=1, padding=1)
-        #weights = torch.tensor([[1., 1., 1.],
+        #weights = torch.tensor([[1., 1., 1.],  # moore neighborhood
         #                        [1., 0., 1.],
         #                        [1., 1., 1.]])
-        weights = torch.tensor([[0., 1., 0.],
+        weights = torch.tensor([[0., 1., 0.],  # von neumann neighborhood
                                 [1., 0., 1.],
                                 [0., 1., 0.]])
         weights = weights.view(1, 1, 3, 3).repeat(1, 1, 1, 1)
@@ -41,7 +41,7 @@ class ForestFire(nn.Module):
         tree_new = torch.subtract(tree, fire_new)  # remove burning trees
         # tree_rand_fire = self.random_fire(tree_new)  # same as below but with dropout layer
         tree_rand_fire = torch.nn.functional.dropout(tree_new,
-                                                     p=p_fire)  # randomly remove empty fields, with p=grow_tree
+                                                     p=p_fire)  # randomly remove trees, with p=p_fire
         tree_rand_fire = torch.mul(tree_rand_fire, (1 - p_fire))  # inverse dropout normalization
         rand_fire = torch.subtract(tree_new, tree_rand_fire)  # removed trees are on fire
         fire_new = torch.add(fire_new, rand_fire)  # fire propagation and random fires combined
@@ -122,6 +122,7 @@ if __name__ == '__main__':
     tree_array = np.asarray(tree_array)
     tree = torch.from_numpy(tree_array)
     tree = tree.unsqueeze(0).float().to(device)
+    tree_orig=tree
 
     fire_array = []
     fire_data = np.zeros((num_rows, num_rows))
@@ -129,6 +130,7 @@ if __name__ == '__main__':
     fire_array = np.asarray(fire_array)
     fire = torch.from_numpy(fire_array)
     fire = fire.unsqueeze(0).float().to(device)
+    fire_orig = fire
 
     b = np.zeros((num_rows, num_rows))
 
@@ -161,7 +163,7 @@ if __name__ == '__main__':
     imax = 10
     i = imax - 2
     while run_program:
-
+        #break
         # retrieve image and plot to window
         g = tree.detach().cpu().numpy()[0] * 150  # better than 255
         r = fire.detach().cpu().numpy()[0] * 255
@@ -194,9 +196,13 @@ if __name__ == '__main__':
             tree, fire = ForestFire(tree=tree, fire=fire, g_tree=g_tree, p_fire=p_fire)
 
     # pure performance run without display / other overhead
+    #for i in range(1000):
+    #    with torch.no_grad():  # otherwise the calculated gradient exceeds GPU memory
+    #        tree, fire = ForestFire(tree=tree, fire=fire, g_tree=0.01, p_fire=0.0001)
     #last_time = time.time()
-    #imax = 1000  # with 1000 -> 320 fps
+    #imax = 10  # with 1000 -> 320 fps
     #for i in range(imax):
     #    with torch.no_grad():  # otherwise the calculated gradient exceeds GPU memory
-    #        tree, fire = ForestFire(tree=tree, fire=fire, g_tree=0.01, p_fire=0.001)
+    #        tree, fire = ForestFire(tree=tree, fire=fire, g_tree=0.01, p_fire=0.0001)
     #print("%s fps ---" % (imax/(time.time() - last_time)))
+    #print("%s ms ---" % (1000 * (time.time() - last_time)))
